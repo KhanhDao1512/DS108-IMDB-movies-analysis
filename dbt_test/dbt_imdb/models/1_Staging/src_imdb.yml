@@ -1,0 +1,20 @@
+version: 2
+
+sources:
+  - name: raw # Tên nguồn dữ liệu từ database và schema -> raw = adroit-coral-493104-s6.IMDB
+    database: adroit-coral-493104-s6 # Tên project trên BigQuery
+    schema: IMDB  # Tên dataset trên BigQuery
+    tables:   # Trong một dataset có thể có nhiều bảng, ta sẽ khai báo ở đây
+      - name: raw_movies 
+
+models:
+  - name: stg_movies
+    columns:
+      - name: movie_id
+        tests:
+          - not_null
+          - unique
+
+      - name: average_rating
+        tests:
+          - not_null

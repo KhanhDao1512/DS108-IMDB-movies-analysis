@@ -1,0 +1,12 @@
+dbt_imdb:
+  target: dev
+  outputs:
+    dev:
+      type: bigquery
+      method: service-account
+      project: "copper-creek-432315-g6"
+      dataset: "IMDB_movie"
+      threads: 4
+      keyfile: "C:/Users/User/Downloads/copper-creek-432315-g6-b5815899fc4a.json"
+      timeout_seconds: 300
+      location: US
