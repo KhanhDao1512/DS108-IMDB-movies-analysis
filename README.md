@@ -1,32 +1,35 @@
-# DS107---IMDB-movies-
+# TMDb Movie Analysis: Data Preprocessing & EDA Pipeline
 
-### 1. Nhiệm vụ Phân tích Đơn biến (Univariate Tasks)
-* **Xử lý cột `num_votes` & `log_votes`:**
-    * [ ] Vẽ biểu đồ Boxplot cho cột `num_votes` để trực quan hóa độ lệch phải.
-    * [ ] Vẽ biểu đồ Histogram (kèm đường cong KDE) cho cột `log_votes` để kiểm tra hình dáng phân phối chuẩn.
-    * [ ] Xác định ngưỡng cắt bằng phương pháp IQR (Interquartile Range) hoặc Z-score trên cột `log_votes`.
-    * [ ] Viết lệnh lọc (filter) để đánh dấu hoặc loại bỏ các dòng nằm ngoài ngưỡng đã chọn.
-* **Xử lý cột `rating_diff`:**
-    * [ ] Vẽ biểu đồ Histogram cho cột `rating_diff`.
-    * [ ] Quan sát hai đuôi của phân phối và quyết định khoảng giá trị chấp nhận được (ví dụ: chỉ giữ lại các phim có độ lệch từ -2 đến +2). Cắt bỏ phần còn lại.
-* **Làm sạch Dữ liệu Chuỗi (Data Quality):**
-    * [ ] Chạy lệnh `value_counts()` trên cột `director` để liệt kê toàn bộ đạo diễn.
-    * [ ] Viết các biểu thức chính quy (Regex) hoặc hàm replace trong Pandas để sửa lỗi encoding (ví dụ: biến `"beyoncÃ©"` thành `"beyonce"` hoặc loại bỏ hẳn nếu là dữ liệu rác).
+## Kiến trúc luồng dữ liệu (Data Pipeline)
+Dự án áp dụng mô hình **Medallion Architecture** để quản lý vòng đời dữ liệu:
+1.  **`preprocessed.csv`:** Dữ liệu thô ban đầu bao gồm metadata cơ bản (tiêu đề, thể loại, đạo diễn, điểm số, lượt bình chọn).
+2.  **`eda_preprocessed_outliers_removed.csv`:** Dữ liệu đã được làm sạch, loại bỏ nhiễu (outliers), xử lý lỗi định dạng và nhất quán hóa logic.
+3.  **`features.csv`:** Dữ liệu đặc trưng đã qua xử lý văn bản, tối ưu hóa số chiều, sẵn sàng cho thuật toán TF-IDF và tính toán Cosine Similarity.
 
-### 2. Nhiệm vụ Phân tích Đa biến (Multivariate Tasks)
-* **Xử lý Nhiễu ngữ cảnh (Rating vs. Votes):**
-    * [ ] Vẽ biểu đồ Scatter Plot với trục X là `log_votes` và trục Y là `average_rating`.
-    * [ ] Quan sát góc trên cùng bên trái của biểu đồ. Xác định ngưỡng "Votes tối thiểu" (Ví dụ: phim phải có ít nhất log_votes > 3 mới được tính là uy tín).
-    * [ ] Lọc bỏ các dòng có `average_rating` cao nhưng `log_votes` nằm dưới ngưỡng tối thiểu này.
-* **Kiểm tra tính logic của thuật toán IMDB:**
-    * [ ] Vẽ biểu đồ Scatter Plot giữa `average_rating` và `weighted_rating`.
-    * [ ] Kẻ thêm một đường thẳng $y = x$ lên biểu đồ.
-    * [ ] Lọc bỏ các điểm phân tán quá xa khỏi đường thẳng này (những phim bị thuật toán phạt hoặc thưởng một cách bất thường).
+---
 
-### 3. Nhiệm vụ Chốt hạ & Báo cáo (Finalization)
-* [ ] Dùng lệnh `df.shape` để ghi nhận lại số lượng bộ phim trước khi bắt đầu quy trình lọc.
-* [ ] Thực thi toàn bộ các tập lệnh cắt bỏ (Drop) Outlier ở phần 1 và phần 2.
-* [ ] Dùng lại lệnh `df.shape` để ghi nhận số lượng bộ phim còn lại sau khi lọc.
-* [ ] Tính toán tỷ lệ phần trăm dữ liệu đã bị loại bỏ (để đưa vào slide báo cáo chứng minh quá trình làm sạch dữ liệu).
-* [ ] Lưu DataFrame đã sạch thành file `silver_layer_cleaned.csv` chuẩn bị cho bước Vector hóa (TF-IDF).
+## Quy trình Tiền xử lý
 
+Quy trình trong file `eda_preprocessed.ipynb`:
+
+### 1. Phân tích Đơn biến & Làm sạch Nhiễu (Univariate Cleaning)
+* **Biến đổi Logarit & IQR cho `num_votes`:** Do lượt tương tác tuân theo định luật Pareto (phân phối lệch phải nặng), phương pháp Z-score sẽ bị vô hiệu hóa. Giải pháp: sử dụng phép biến đổi Logarit (`log_votes`) để đưa dữ liệu về phân phối tiệm cận chuẩn, sau đó áp dụng **IQR (Interquartile Range)** để xác định và loại bỏ các phim có lượt tương tác quá thấp, không đủ độ tin cậy.
+* **Hard Threshold cho `rating_diff`:** Thiết lập ngưỡng chặn tuyệt đối trong khoảng [-2, 2] cho sự chênh lệch giữa điểm trung bình và điểm trọng số TMDB. Điều này giúp loại bỏ tận gốc các trường hợp bị **Review Bombing** hoặc sai lệch thuật toán nghiêm trọng.
+* **Kiểm soát chất lượng văn bản (Regex):** Xử lý lỗi mã hóa **Mojibake** (vd: chuyển `beyoncé` thành `beyonce`) thông qua Regular Expression để đảm bảo tính toàn vẹn của thực thể định danh trước khi đưa vào mô hình NLP.
+
+### 2. Phân tích Đa biến & Loại bỏ nhiễu ngữ cảnh
+* **Triệt tiêu "Ảo điểm" (Contextual Outliers):** Thông qua biểu đồ phân tán (Scatter Plot) giữa `log_votes` và `average_rating`, loại bỏ các phim có điểm số cao tuyệt đối nhưng lượt bình chọn cực thấp. Việc này đảm bảo hệ thống chỉ đề xuất những tác phẩm đã được cộng đồng kiểm chứng (Verified quality).
+* **Kiểm định logic thuật toán:** Đối chiếu tính nhất quán giữa điểm số thô và điểm trọng số dựa trên đường phân giác y=x, đảm bảo đặc trưng `weighted_rating` phản ánh đúng giá trị thực của bộ phim.
+
+### 3. Tối ưu hóa Không gian Dữ liệu
+* **Xử lý Metadata thưa (Sparsity Handling):** Giải pháp để tránh Curse of Dimensionality là gom nhóm hàng ngàn đạo diễn chỉ xuất hiện một lần vào nhãn `unknown_director`, điều này giúp nén không gian Vector TF-IDF, tối ưu tài nguyên tính toán mà không làm mất đi giá trị nội dung của phim.
+
+---
+
+## Kết quả nghiệm thu dữ liệu
+* **Số lượng phim ban đầu:** 9,993
+* **Số lượng phim sau làm sạch:** 9666
+* **Số lượng Outliers bị loại bỏ:** ~327
+* **Tỷ lệ giữ lại dữ liệu:** 96.73% 
+
+---
